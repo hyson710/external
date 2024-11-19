@@ -18,66 +18,18 @@
 #
 # ##############################################################################
 
-if(CONFIG_BT AND CONFIG_ZEPHYR_WORK_QUEUE)
+if(CONFIG_BT)
 
   set(ZBLUE_DIR ${CMAKE_CURRENT_LIST_DIR}/zblue/)
-  set(SUBDIR subsys/bluetooth)
-  set(ZBLUE_SUBDIR ${ZBLUE_DIR}/${SUBDIR})
+  set(BTDIR ${ZBLUE_DIR}/subsys/bluetooth)
+  set(HOSTDIR ${BTDIR}/host)
+  set(CLASSICDIR ${HOSTDIR}/classic)
 
-  set(ZBLUE_FLAGS)
-  set(ZBLUE_INCDIR)
-  set(ZBLUE_CSRCS)
+  set(CFLAGS)
+  set(INCDIR)
+  set(CSRCS)
 
-  nuttx_add_library(zblue)
-
-  list(
-    APPEND
-    ZBLUE_INCDIR
-    ${ZBLUE_DIR}port/include
-    ${ZBLUE_DIR}port/include/kernel/include
-    ${ZBLUE_DIR}include/zephyr
-    ${ZBLUE_DIR}subsys/bluetooth
-    ${ZBLUE_DIR}subsys/bluetooth/host
-    ${ZBLUE_DIR}subsys/bluetooth/services
-    ${ZBLUE_DIR}subsys/bluetooth/mesh
-    ${ZBLUE_DIR}subsys/bluetooth/common
-    ${NUTTX_APPS_DIR}/external/tinycrypt/lib/include)
-
-  if(CONFIG_BT_SAMPLE)
-    set(STACKSIZE ${CONFIG_BT_SAMPLE_STACKSIZE})
-    set(MODULE ${CONFIG_BT_SAMPLE})
-  else()
-    set(STACKSIZE ${CONFIG_DEFAULT_TASK_STACKSIZE})
-    set(MODULE n)
-  endif()
-
-  macro(zblue_app PROGNAME MAINSRCS)
-    nuttx_add_application(
-      NAME
-      ${PROGNAME}
-      SRCS
-      ${MAINSRCS}
-      STACKSIZE
-      ${STACKSIZE}
-      MODULE
-      ${MODULE}
-      DEPENDS
-      zblue)
-  endmacro()
-
-  list(
-    APPEND
-    ZBLUE_CSRCS
-    ${ZBLUE_DIR}lib/os/crc8_sw.c
-    ${ZBLUE_DIR}lib/os/crc16_sw.c
-    ${ZBLUE_DIR}lib/os/crc32_sw.c
-    ${ZBLUE_DIR}subsys/net/buf.c
-    ${ZBLUE_DIR}port/common/defines.c
-    ${ZBLUE_DIR}port/kernel/mempool.c)
-
-  list(
-    APPEND
-    ZBLUE_FLAGS
+  list(APPEND CFLAGS
     -Wno-implicit-function-declaration
     -Wno-unused-but-set-variable
     -Wno-unused-function
@@ -86,696 +38,876 @@ if(CONFIG_BT AND CONFIG_ZEPHYR_WORK_QUEUE)
     -Wno-shadow
     -Wno-stringop-overread)
 
-  list(
-    APPEND
-    ZBLUE_INCDIR
+  list(APPEND INCDIR
     ${ZBLUE_DIR}port/include
-    # ${ZBLUE_DIR}include
+    ${ZBLUE_DIR}port/include/zephyr
+    ${ZBLUE_DIR}port/kernel/include
     ${ZBLUE_DIR}subsys/bluetooth
+    ${ZBLUE_DIR}subsys/bluetooth/audio
     ${ZBLUE_DIR}subsys/bluetooth/host
-    ${ZBLUE_DIR}subsys/bluetooth/services
     ${ZBLUE_DIR}subsys/bluetooth/mesh
-    ${ZBLUE_DIR}subsys/bluetooth/common
+    ${ZBLUE_DIR}subsys/bluetooth/services
     ${ZBLUE_DIR}subsys/testsuite/ztest/include
     ${NUTTX_APPS_DIR}/crypto/tinycrypt/tinycrypt/lib/include)
 
+  set(CSRCS
+    ${BTDIR}/common/addr.c
+    ${BTDIR}/common/dummy.c
+    ${BTDIR}/common/bt_str.c
+  )
+
+  if(CONFIG_BT_RPA)
+    list(APPEND CSRCS ${BTDIR}/common/rpa.c)
+  endif()
+
+  if(CONFIG_BT_EAD)
+    list(APPEND CSRCS ${BTDIR}/lib/ead.c)
+  endif()
+
   if(CONFIG_BT_HCI)
-
     if(CONFIG_BT_HCI_RAW)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/hci_raw.c
-           ${ZBLUE_SUBDIR}/host/hci_common.c)
+      list(APPEND CSRCS ${HOSTDIR}/hci_raw.c ${HOSTDIR}/hci_common.c)
     endif()
-
-    if(CONFIG_BT_DEBUG_MONITOR)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/monitor.c)
+    if(CONFIG_BT_MONITOR)
+      list(APPEND CSRCS ${HOSTDIR}/monitor.c)
     endif()
-
     if(CONFIG_BT_TINYCRYPT_ECC)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/hci_ecc.c)
+      list(APPEND CSRCS ${HOSTDIR}/hci_ecc.c)
     endif()
-
-    if(CONFIG_BT_A2DP)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/a2dp.c)
-    endif()
-
-    if(CONFIG_BT_AVDTP)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/avdtp.c)
-    endif()
-
-    if(CONFIG_BT_RFCOMM)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/rfcomm.c)
-    endif()
-
-    if(CONFIG_BT_TESTING)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/testing.c)
-    endif()
-
     if(CONFIG_BT_SETTINGS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/settings.c)
+      list(APPEND CSRCS ${HOSTDIR}/settings.c)
     endif()
-
     if(CONFIG_BT_HOST_CCM)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/aes_ccm.c)
+      list(APPEND CSRCS ${HOSTDIR}/aes_ccm.c)
     endif()
-
-    if(CONFIG_BT_BREDR)
-      list(
-        APPEND
-        ZBLUE_CSRCS
-        ${ZBLUE_SUBDIR}/host/br.c
-        ${ZBLUE_SUBDIR}/host/keys_br.c
-        ${ZBLUE_SUBDIR}/host/l2cap_br.c
-        ${ZBLUE_SUBDIR}/host/sdp.c
-        ${ZBLUE_SUBDIR}/host/ssp.c)
-    endif()
-
-    if(CONFIG_BT_HFP_HF)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/hfp_hf.c
-           ${ZBLUE_SUBDIR}/host/at.c)
+    if(CONFIG_BT_LONG_WQ)
+      list(APPEND CSRCS ${HOSTDIR}/long_wq.c)
     endif()
 
     if(CONFIG_BT_HCI_HOST)
-      list(
-        APPEND
-        ZBLUE_CSRCS
-        ${ZBLUE_SUBDIR}/host/uuid.c
-        ${ZBLUE_SUBDIR}/host/addr.c
-        ${ZBLUE_SUBDIR}/host/buf.c
-        ${ZBLUE_SUBDIR}/host/hci_core.c
-        ${ZBLUE_SUBDIR}/host/hci_common.c
-        ${ZBLUE_SUBDIR}/host/id.c)
+      list(APPEND CSRCS
+        ${HOSTDIR}/uuid.c ${HOSTDIR}/addr.c
+        ${HOSTDIR}/buf.c ${HOSTDIR}/data.c
+        ${HOSTDIR}/hci_core.c ${HOSTDIR}/hci_common.c
+        ${HOSTDIR}/id.c
+      )
 
       if(CONFIG_BT_BROADCASTER)
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/adv.c)
+        list(APPEND CSRCS ${HOSTDIR}/adv.c)
       endif()
-
       if(CONFIG_BT_OBSERVER)
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/scan.c)
+        list(APPEND CSRCS ${HOSTDIR}/scan.c)
       endif()
 
-      if(CONFIG_BT_HOST_CRYPTO)
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/crypto.c)
+      if(CONFIG_BT_USE_PSA_API)
+        if(CONFIG_BT_HOST_CRYPTO)
+          list(APPEND CSRCS ${HOSTDIR}/crypto_psa.c)
+        endif()
       else()
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/subsys/bluetooth/crypto.c)
+        if(CONFIG_BT_HOST_CRYPTO)
+          list(APPEND CSRCS ${HOSTDIR}/crypto_tc.c)
+        endif()
       endif()
 
       if(CONFIG_BT_ECC)
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/ecc.c)
+        list(APPEND CSRCS ${HOSTDIR}/ecc.c)
       endif()
 
       if(CONFIG_BT_CONN)
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/conn.c
-             ${ZBLUE_SUBDIR}/host/l2cap.c ${ZBLUE_SUBDIR}/host/att.c
-             ${ZBLUE_SUBDIR}/host/gatt.c)
+        list(APPEND CSRCS
+          ${HOSTDIR}/conn.c ${HOSTDIR}/l2cap.c
+          ${HOSTDIR}/att.c ${HOSTDIR}/gatt.c
+        )
+
         if(CONFIG_BT_SMP)
-          list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/smp.c
-               ${ZBLUE_SUBDIR}/host/keys.c)
+          list(APPEND CSRCS ${HOSTDIR}/smp.c ${HOSTDIR}/keys.c)
         else()
-          list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/smp_null.c)
+          list(APPEND CSRCS ${HOSTDIR}/smp_null.c)
         endif()
       endif()
-    endif()
 
-    if(CONFIG_BT_ISO)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/iso.c
-           ${ZBLUE_SUBDIR}/host/conn.c)
-    endif()
+      if(CONFIG_BT_ISO)
+        list(APPEND CSRCS ${HOSTDIR}/iso.c ${HOSTDIR}/conn.c)
+      endif()
+      if(CONFIG_BT_CHANNEL_SOUNDING)
+        list(APPEND CSRCS ${HOSTDIR}/cs.c)
+      endif()
+      if(CONFIG_BT_DF)
+        list(APPEND CSRCS ${HOSTDIR}/direction.c)
+      endif()
+    endif() # CONFIG_BT_HCI_HOST
 
-    if(CONFIG_BT_DF)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/host/direction.c)
-    endif()
-  endif()
+    if(CONFIG_BT_CLASSIC)
+      if(CONFIG_BT_A2DP)
+        list(APPEND CSRCS ${CLASSICDIR}/a2dp.c ${CLASSICDIR}/a2dp_codec_sbc.c)
+      endif()
+      if(CONFIG_BT_AVDTP)
+        list(APPEND CSRCS ${CLASSICDIR}/avdtp.c)
+      endif()
+      if(CONFIG_BT_AVRCP)
+        list(APPEND CSRCS ${CLASSICDIR}/avrcp.c)
+      endif()
+      if(CONFIG_BT_AVCTP)
+        list(APPEND CSRCS ${CLASSICDIR}/avctp.c)
+      endif()
+      if(CONFIG_BT_RFCOMM)
+        list(APPEND CSRCS ${CLASSICDIR}/rfcomm.c)
+      endif()
 
-  if(CONFIG_BT_AUDIO)
+      list(APPEND CSRCS
+        ${CLASSICDIR}/br.c
+        ${CLASSICDIR}/keys_br.c
+        ${CLASSICDIR}/l2cap_br.c
+        ${CLASSICDIR}/sdp.c
+        ${CLASSICDIR}/ssp.c
+        ${CLASSICDIR}/sco.c
+      )
 
-    if(CONFIG_BT_VOCS AND CONFIG_BT_VOCS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/vocs.c)
-    endif()
+      if(CONFIG_BT_HFP_HF)
+        list(APPEND CSRCS ${CLASSICDIR}/hfp_hf.c ${CLASSICDIR}/at.c)
+      endif()
+      if(CONFIG_BT_HFP_AG)
+        list(APPEND CSRCS ${CLASSICDIR}/hfp_ag.c)
+      endif()
 
-    if(CONFIG_BT_VOCS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/vocs_client.c)
-    endif()
+      if(CONFIG_BT_SHELL)
+        list(APPEND CSRCS ${CLASSICDIR}/shell/bredr.c)
 
-    if(CONFIG_BT_AICS AND CONFIG_BT_AICS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/aics.c)
-    endif()
+        if(CONFIG_BT_RFCOMM)
+          list(APPEND CSRCS ${CLASSICDIR}/shell/rfcomm.c)
+        endif()
+        if(CONFIG_BT_A2DP)
+          list(APPEND CSRCS ${CLASSICDIR}/shell/a2dp.c)
+        endif()
+        if(CONFIG_BT_AVRCP)
+          list(APPEND CSRCS ${CLASSICDIR}/shell/avrcp.c)
+        endif()
+      endif() # CONFIG_BT_SHELL
+    endif() # CONFIG_BT_CLASSIC
 
-    if(CONFIG_BT_AICS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/aics_client.c)
-    endif()
+    if(CONFIG_BT_SHELL)
+      list(APPEND CSRCS ${HOSTDIR}/shell/bt.c)
 
-    if(CONFIG_BT_VCS AND CONFIG_BT_VCS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/vcs.c)
-    endif()
+      if(CONFIG_BT_CONN)
+        list(APPEND CSRCS ${HOSTDIR}/shell/gatt.c)
+      endif()
+      if(CONFIG_BT_L2CAP_DYNAMIC_CHANNEL)
+        list(APPEND CSRCS ${HOSTDIR}/shell/l2cap.c)
+      endif()
+      if(CONFIG_BT_ISO)
+        list(APPEND CSRCS ${HOSTDIR}/shell/iso.c)
+      endif()
+      if(CONFIG_BT_CHANNEL_SOUNDING)
+        list(APPEND CSRCS ${HOSTDIR}/shell/cs.c)
+      endif()
+    endif() # CONFIG_BT_SHELL
+  endif() # CONFIG_BT_HCI
 
-    if(CONFIG_BT_VCS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/vcs_client.c)
-    endif()
-
-    if(CONFIG_BT_MICS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/mics.c)
-    endif()
-
-    if(CONFIG_BT_MICS AND CONFIG_BT_MICS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/mics_client.c)
-    endif()
-
-    if(CONFIG_BT_CCID)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/ccid.c)
-    endif()
-
-    if(CONFIG_BT_CSIS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/csis.c)
-    endif()
-
-    if(CONFIG_BT_CSIS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/csis_client.c)
-    endif()
-
-    if(CONFIG_BT_CSIS AND CONFIG_BT_CSIS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/csis_crypto.c)
-    endif()
-
-    if(CONFIG_BT_TBS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/tbs.c)
-    endif()
-
-    if(CONFIG_BT_TBS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/tbs_client.c)
-    endif()
-
-    if(CONFIG_BT_MCC)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/mcc.c)
-    endif()
-
-    if(CONFIG_BT_MCS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/mcs.c)
-    endif()
-
-    if(CONFIG_BT_MPL)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/mpl.c)
-    endif()
-
-    if(CONFIG_MCTL)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/media_proxy.c)
-    endif()
-
-    if(CONFIG_BT_ASCS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/ascs.c)
-    endif()
-
-    if(CONFIG_BT_PACS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/pacs.c)
-    endif()
-
-    if(CONFIG_BT_AUDIO_STREAM)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/stream.c
-           ${ZBLUE_SUBDIR}/audio/codec.c)
-    endif()
-
-    if(CONFIG_BT_AUDIO_UNICAST_SERVER)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/unicast_server.c)
-    endif()
-
-    if(CONFIG_BT_AUDIO_CAPABILITIES)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/capabilities.c)
-    endif()
-
-    if(CONFIG_BT_AUDIO_UNICAST_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/unicast_client.c)
-    endif()
-
-    if(CONFIG_BT_AUDIO_BROADCAST_SOURCE)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/broadcast_source.c)
-    endif()
-
-    if(CONFIG_BT_AUDIO_BROADCAST_SINK)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/broadcast_sink.c)
-    endif()
-
-    if(CONFIG_BT_BASS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/bass.c)
-    endif()
-
-    if(CONFIG_BT_BASS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/bass_client.c)
-    endif()
-
-    if(CONFIG_BT_HAS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/has.c)
-    endif()
-
-    if(CONFIG_BT_HAS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/audio/has_client.c)
-    endif()
-  endif()
+  set(SVRSDIR ${BTDIR}/services)
 
   if(CONFIG_BT_CONN)
-
     if(CONFIG_BT_DIS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/services/dis.c)
+      list(APPEND CSRCS ${SVRSDIR}/dis.c)
+    endif()
+    if(CONFIG_BT_CTS)
+      list(APPEND CSRCS ${SVRSDIR}/cts.c)
+    endif()
+    if(CONFIG_BT_HRS)
+      list(APPEND CSRCS ${SVRSDIR}/hrs.c)
+    endif()
+    if(CONFIG_BT_TPS)
+      list(APPEND CSRCS ${SVRSDIR}/tps.c)
     endif()
 
     if(CONFIG_BT_BAS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/services/bas.c)
-    endif()
-
-    if(CONFIG_BT_HRS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/services/hrs.c)
-    endif()
-
-    if(CONFIG_BT_TPS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/services/tps.c)
-    endif()
-
-    if(CONFIG_BT_IAS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/services/ias.c)
+      list(APPEND CSRCS ${SVRSDIR}/bas/bas.c)
+      if(CONFIG_BT_BAS_BLS)
+        list(APPEND CSRCS ${SVRSDIR}/bas/bas_bls.c)
+      endif()
+      if(CONFIG_BT_BAS_BCS)
+        list(APPEND CSRCS ${SVRSDIR}/bas/bas_bcs.c)
+      endif()
     endif()
 
     if(CONFIG_BT_OTS)
-      list(
-        APPEND
-        ZBLUE_CSRCS
-        ${ZBLUE_SUBDIR}/services/ots/ots.c
-        ${ZBLUE_SUBDIR}/services/ots/ots_l2cap.c
-        ${ZBLUE_SUBDIR}/services/ots/ots_obj_manager.c
-        ${ZBLUE_SUBDIR}/services/ots/ots_oacp.c
-        ${ZBLUE_SUBDIR}/services/ots/ots_olcp.c)
+      list(APPEND CSRCS
+        ${SVRSDIR}/ots/ots.c
+        ${SVRSDIR}/ots/ots_l2cap.c
+        ${SVRSDIR}/ots/ots_obj_manager.c
+        ${SVRSDIR}/ots/ots_oacp.c
+        ${SVRSDIR}/ots/ots_olcp.c
+      )
+    endif()
 
-      if(CONFIG_BT_OTS_DIR_LIST_OBJ)
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/services/ots/ots_dir_list.c)
+    if(CONFIG_BT_OTS_DIR_LIST_OBJ)
+      list(APPEND CSRCS ${SVRSDIR}/ots/ots_dir_list.c)
+    endif()
+    if(CONFIG_BT_OTS_CLIENT)
+      list(APPEND CSRCS
+        ${SVRSDIR}/ots/ots_client.c
+        ${SVRSDIR}/ots/ots_l2cap.c
+      )
+    endif()
+
+    if(CONFIG_BT_IAS)
+      list(APPEND CSRCS ${SVRSDIR}/ias/ias.c)
+      if(CONFIG_BT_SHELL)
+        list(APPEND CSRCS ${SVRSDIR}/ias/shell/ias.c)
       endif()
+    endif()
 
-      if(CONFIG_BT_OTS_CLIENT)
-        list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/services/ots/ots_client.c
-             ${ZBLUE_SUBDIR}/services/ots/ots_l2cap.c)
+    if(CONFIG_BT_IAS_CLIENT)
+      list(APPEND CSRCS ${SVRSDIR}/ias/ias_client.c)
+      if(CONFIG_BT_SHELL)
+        list(APPEND CSRCS ${SVRSDIR}/ias/shell/ias_client.c)
+      endif()
+    endif()
+
+    if(CONFIG_BT_ZEPHYR_NUS)
+      list(APPEND CSRCS
+        ${SVRSDIR}/nus/nus.c
+        ${SVRSDIR}/nus/nus_inst.c
+      )
+      if(CONFIG_BT_ZEPHYR_NUS_AUTO_START_BLUETOOTH)
+        list(APPEND CSRCS ${SVRSDIR}/nus/bt_nus_auto_start_bt.c)
       endif()
     endif()
   endif()
+
+  set(MESHDIR ${BTDIR}/mesh)
 
   if(CONFIG_BT_MESH)
-
-    list(
-      APPEND
-      ZBLUE_CSRCS
-      ${ZBLUE_SUBDIR}/mesh/main.c
-      ${ZBLUE_SUBDIR}/mesh/cfg.c
-      ${ZBLUE_SUBDIR}/mesh/adv.c
-      ${ZBLUE_SUBDIR}/mesh/beacon.c
-      ${ZBLUE_SUBDIR}/mesh/net.c
-      ${ZBLUE_SUBDIR}/mesh/subnet.c
-      ${ZBLUE_SUBDIR}/mesh/app_keys.c
-      ${ZBLUE_SUBDIR}/mesh/transport.c
-      ${ZBLUE_SUBDIR}/mesh/rpl.c
-      ${ZBLUE_SUBDIR}/mesh/heartbeat.c
-      ${ZBLUE_SUBDIR}/mesh/crypto.c
-      ${ZBLUE_SUBDIR}/mesh/access.c
-      ${ZBLUE_SUBDIR}/mesh/msg.c
-      ${ZBLUE_SUBDIR}/mesh/cfg_srv.c
-      ${ZBLUE_SUBDIR}/mesh/health_srv.c)
+    list(APPEND CSRCS
+      ${MESHDIR}/main.c
+      ${MESHDIR}/cfg.c
+      ${MESHDIR}/adv.c
+      ${MESHDIR}/beacon.c
+      ${MESHDIR}/net.c
+      ${MESHDIR}/subnet.c
+      ${MESHDIR}/app_keys.c
+      ${MESHDIR}/heartbeat.c
+      ${MESHDIR}/crypto.c
+      ${MESHDIR}/access.c
+      ${MESHDIR}/msg.c
+      ${MESHDIR}/cfg_srv.c
+      ${MESHDIR}/health_srv.c
+      ${MESHDIR}/va.c
+      ${MESHDIR}/transport.c
+    )
 
     if(CONFIG_BT_MESH_ADV_LEGACY)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/adv_legacy.c)
+      list(APPEND CSRCS ${MESHDIR}/adv_legacy.c)
     endif()
-
     if(CONFIG_BT_MESH_ADV_EXT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/adv_ext.c)
+      list(APPEND CSRCS ${MESHDIR}/adv_ext.c)
     endif()
-
     if(CONFIG_BT_SETTINGS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/settings.c)
+      list(APPEND CSRCS ${MESHDIR}/settings.c)
     endif()
-
+    if(CONFIG_BT_MESH_RPL_STORAGE_MODE_SETTINGS)
+      list(APPEND CSRCS ${MESHDIR}/rpl.c)
+    endif()
     if(CONFIG_BT_MESH_LOW_POWER)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/lpn.c)
+      list(APPEND CSRCS ${MESHDIR}/lpn.c)
     endif()
-
     if(CONFIG_BT_MESH_FRIEND)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/friend.c)
+      list(APPEND CSRCS ${MESHDIR}/friend.c)
     endif()
-
     if(CONFIG_BT_MESH_PROV)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/prov.c)
+      list(APPEND CSRCS ${MESHDIR}/prov.c)
     endif()
-
-    if(CONFIG_BT_MESH_PROV_DEVICE)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/prov_device.c)
+    if(CONFIG_BT_MESH_PROVISIONEE)
+      list(APPEND CSRCS ${MESHDIR}/provisionee.c)
     endif()
-
     if(CONFIG_BT_MESH_PROVISIONER)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/provisioner.c)
+      list(APPEND CSRCS ${MESHDIR}/provisioner.c)
     endif()
-
     if(CONFIG_BT_MESH_PB_ADV)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/pb_adv.c)
+      list(APPEND CSRCS ${MESHDIR}/pb_adv.c)
     endif()
-
     if(CONFIG_BT_MESH_PB_GATT_COMMON)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/pb_gatt.c)
+      list(APPEND CSRCS ${MESHDIR}/pb_gatt.c)
     endif()
-
     if(CONFIG_BT_MESH_PB_GATT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/pb_gatt_srv.c)
+      list(APPEND CSRCS ${MESHDIR}/pb_gatt_srv.c)
     endif()
-
     if(CONFIG_BT_MESH_PB_GATT_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/pb_gatt_cli.c)
+      list(APPEND CSRCS ${MESHDIR}/pb_gatt_cli.c)
     endif()
-
     if(CONFIG_BT_MESH_GATT_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/gatt_cli.c)
+      list(APPEND CSRCS ${MESHDIR}/gatt_cli.c)
     endif()
-
     if(CONFIG_BT_MESH_PROXY_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/proxy_cli.c)
+      list(APPEND CSRCS ${MESHDIR}/proxy_cli.c)
     endif()
-
     if(CONFIG_BT_MESH_GATT_PROXY)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/proxy_srv.c)
+      list(APPEND CSRCS ${MESHDIR}/proxy_srv.c)
     endif()
-
     if(CONFIG_BT_MESH_GATT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/proxy_msg.c)
+      list(APPEND CSRCS ${MESHDIR}/proxy_msg.c)
     endif()
-
     if(CONFIG_BT_MESH_CFG_CLI)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/cfg_cli.c)
+      list(APPEND CSRCS ${MESHDIR}/cfg_cli.c)
     endif()
-
     if(CONFIG_BT_MESH_HEALTH_CLI)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/health_cli.c)
+      list(APPEND CSRCS ${MESHDIR}/health_cli.c)
     endif()
-
+    if(CONFIG_BT_MESH_SAR_CFG_CLI)
+      list(APPEND CSRCS ${MESHDIR}/sar_cfg_cli.c)
+    endif()
+    if(CONFIG_BT_MESH_SAR_CFG_SRV)
+      list(APPEND CSRCS ${MESHDIR}/sar_cfg_srv.c)
+    endif()
+    if(CONFIG_BT_MESH_SAR_CFG)
+      list(APPEND CSRCS ${MESHDIR}/sar_cfg.c)
+    endif()
+    if(CONFIG_BT_MESH_OP_AGG_SRV)
+      list(APPEND CSRCS ${MESHDIR}/op_agg_srv.c)
+    endif()
+    if(CONFIG_BT_MESH_OP_AGG_CLI)
+      list(APPEND CSRCS ${MESHDIR}/op_agg_cli.c)
+    endif()
+    if(CONFIG_BT_MESH_OP_AGG)
+      list(APPEND CSRCS ${MESHDIR}/op_agg.c)
+    endif()
+    if(CONFIG_BT_MESH_LARGE_COMP_DATA_SRV)
+      list(APPEND CSRCS ${MESHDIR}/large_comp_data_srv.c)
+    endif()
+    if(CONFIG_BT_MESH_LARGE_COMP_DATA_CLI)
+      list(APPEND CSRCS ${MESHDIR}/large_comp_data_cli.c)
+    endif()
+    if(CONFIG_BT_MESH_PRIV_BEACON_SRV)
+      list(APPEND CSRCS ${MESHDIR}/priv_beacon_srv.c)
+    endif()
+    if(CONFIG_BT_MESH_PRIV_BEACON_CLI)
+      list(APPEND CSRCS ${MESHDIR}/priv_beacon_cli.c)
+    endif()
     if(CONFIG_BT_MESH_SELF_TEST)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/test.c)
+      list(APPEND CSRCS ${MESHDIR}/test.c)
     endif()
-
     if(CONFIG_BT_MESH_CDB)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/cdb.c)
+      list(APPEND CSRCS ${MESHDIR}/cdb.c)
     endif()
-  endif()
-
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/common/log.c)
-
-  if(CONFIG_BT_RPA)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/common/rpa.c)
-  endif()
-
-  if(CONFIG_SETTINGS)
-    list(
-      APPEND
-      ZBLUE_CSRCS
-      ${ZBLUE_DIR}/subsys/settings/src/settings.c
-      ${ZBLUE_DIR}/subsys/settings/src/settings_store.c
-      ${ZBLUE_DIR}/subsys/settings/src/settings_init.c
-      ${ZBLUE_DIR}/subsys/settings/src/settings_line.c)
-
-    if(CONFIG_SETTINGS_FS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/subsys/settings/src/settings_file.c)
+    if(CONFIG_BT_MESH_BLOB_SRV)
+      list(APPEND CSRCS ${MESHDIR}/blob_srv.c)
     endif()
-    if(CONFIG_SETTINGS_NVS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/subsys/flash/flash.c
-           ${ZBLUE_DIR}/subsys/fs/nvs/nvs.c
-           ${ZBLUE_DIR}/subsys/settings/src/settings_nvs.c)
+    if(CONFIG_BT_MESH_BLOB_CLI)
+      list(APPEND CSRCS ${MESHDIR}/blob_cli.c)
     endif()
-    list(APPEND ZBLUE_INCDIR ${ZBLUE_DIR}/subsys/settings/include)
-  endif()
-
-  if(CONFIG_FILE_SYSTEM)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/subsys/fs/fs.c)
-  endif()
-
-  # im in CONFIG_BT_SHELL
-  if(CONFIG_BT_SHELL)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/bt.c
-         ${ZBLUE_SUBDIR}/shell/hci.c ${ZBLUE_DIR}/subsys/shell/shell_utils.c)
-
-    if(CONFIG_BT_MIBLE_TEST)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/mible_test.c)
+    if(CONFIG_BT_MESH_BLOB_IO_FLASH)
+      list(APPEND CSRCS ${MESHDIR}/blob_io_flash.c)
     endif()
-
-    if(CONFIG_BT_CONN)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/gatt.c)
+    if(CONFIG_BT_MESH_DFU_CLI)
+      list(APPEND CSRCS ${MESHDIR}/dfu_cli.c)
     endif()
-
-    if(CONFIG_BT_BREDR)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/bredr.c)
+    if(CONFIG_BT_MESH_DFU_SRV)
+      list(APPEND CSRCS ${MESHDIR}/dfu_srv.c)
     endif()
-
-    if(CONFIG_BT_L2CAP_DYNAMIC_CHANNEL)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/l2cap.c)
+    if(CONFIG_BT_MESH_DFD_SRV)
+      list(APPEND CSRCS ${MESHDIR}/dfd_srv.c)
     endif()
-
-    if(CONFIG_BT_RFCOMM)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/rfcomm.c)
+    if(CONFIG_BT_MESH_DFU_SLOTS)
+      list(APPEND CSRCS ${MESHDIR}/dfu_slot.c)
     endif()
-
-    if(CONFIG_BT_ISO)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/iso.c)
+    if(CONFIG_BT_MESH_DFU_METADATA)
+      list(APPEND CSRCS ${MESHDIR}/dfu_metadata.c)
     endif()
-
-    if(CONFIG_BT_VCS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/vcs.c)
+    if(CONFIG_BT_MESH_RPR_CLI)
+      list(APPEND CSRCS ${MESHDIR}/rpr_cli.c)
     endif()
-
-    if(CONFIG_BT_VCS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/vcs_client.c)
+    if(CONFIG_BT_MESH_RPR_SRV)
+      list(APPEND CSRCS ${MESHDIR}/rpr_srv.c)
     endif()
-
-    if(CONFIG_BT_MICS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/mics.c)
+    if(CONFIG_BT_MESH_OD_PRIV_PROXY_CLI)
+      list(APPEND CSRCS ${MESHDIR}/od_priv_proxy_cli.c)
     endif()
-
-    if(CONFIG_BT_MICS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/mics_client.c)
+    if(CONFIG_BT_MESH_OD_PRIV_PROXY_SRV)
+      list(APPEND CSRCS ${MESHDIR}/od_priv_proxy_srv.c)
     endif()
-
-    if(CONFIG_BT_CSIS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/csis.c)
+    if(CONFIG_BT_MESH_SOL_PDU_RPL_CLI)
+      list(APPEND CSRCS ${MESHDIR}/sol_pdu_rpl_cli.c)
     endif()
-
-    if(CONFIG_BT_CSIS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/csis_client.c)
+    if(CONFIG_BT_MESH_SOL_PDU_RPL_SRV)
+      list(APPEND CSRCS ${MESHDIR}/sol_pdu_rpl_srv.c)
     endif()
-
-    if(CONFIG_BT_MCS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/mpl.c)
+    if(CONFIG_BT_MESH_BRG_CFG_CLI)
+      list(APPEND CSRCS ${MESHDIR}/brg_cfg_cli.c)
     endif()
-
-    if(CONFIG_BT_MCC)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/mcc.c)
+    if(CONFIG_BT_MESH_BRG_CFG_SRV)
+      list(APPEND CSRCS ${MESHDIR}/brg_cfg_srv.c ${MESHDIR}/brg_cfg.c)
     endif()
-
-    if(CONFIG_BT_MCS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/media_controller.c)
+    if(CONFIG_BT_MESH_SOLICITATION)
+      list(APPEND CSRCS ${MESHDIR}/solicitation.c)
     endif()
-
-    if(CONFIG_BT_AUDIO_STREAM)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/audio.c)
+    if(CONFIG_BT_MESH_STATISTIC)
+      list(APPEND CSRCS ${MESHDIR}/statistic.c)
     endif()
-
-    if(CONFIG_BT_BASS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/bass.c)
+    if(CONFIG_BT_MESH_ACCESS_DELAYABLE_MSG)
+      list(APPEND CSRCS ${MESHDIR}/delayable_msg.c)
     endif()
-
-    if(CONFIG_BT_BASS_CLIENT)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/shell/bass_client.c)
+    if(CONFIG_BT_MESH_USES_TINYCRYPT)
+      list(APPEND CSRCS ${MESHDIR}/crypto_tc.c)
+    else()
+      list(APPEND CSRCS ${MESHDIR}/crypto_psa.c)
+    endif()
+    if(CONFIG_BT_TESTING)
+      list(APPEND CSRCS ${MESHDIR}/testing.c)
     endif()
 
     if(CONFIG_BT_MESH_SHELL)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_SUBDIR}/mesh/shell.c)
-      zblue_app(mesh ${ZBLUE_DIR}/tests/bluetooth/mesh_shell/src/main.c)
+      list(APPEND CSRCS
+        ${MESHDIR}/shell/shell.c
+        ${MESHDIR}/shell/utils.c
+      )
+
+      if(CONFIG_BT_MESH_SHELL_HEALTH_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/health.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_CFG_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/cfg.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_LARGE_COMP_DATA_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/large_comp_data.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_OP_AGG_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/op_agg.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_PRIV_BEACON_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/priv_beacon.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_RPR_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/rpr.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_SAR_CFG_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/sar.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_BLOB_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/blob.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_BLOB_SRV)
+        list(APPEND CSRCS ${MESHDIR}/shell/blob.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_BLOB_IO_FLASH)
+        list(APPEND CSRCS ${MESHDIR}/shell/blob.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_DFU_SLOT)
+        list(APPEND CSRCS ${MESHDIR}/shell/dfu.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_DFU_METADATA)
+        list(APPEND CSRCS ${MESHDIR}/shell/dfu.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_DFU_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/dfu.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_DFU_SRV)
+        list(APPEND CSRCS ${MESHDIR}/shell/dfu.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_DFD_SRV)
+        list(APPEND CSRCS ${MESHDIR}/shell/dfd.c)
+      endif()
+      if(CONFIG_BT_MESH_OD_PRIV_PROXY_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/od_priv_proxy.c)
+      endif()
+      if(CONFIG_BT_MESH_SOL_PDU_RPL_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/sol_pdu_rpl.c)
+      endif()
+      if(CONFIG_BT_MESH_SHELL_BRG_CFG_CLI)
+        list(APPEND CSRCS ${MESHDIR}/shell/brg_cfg.c)
+      endif()
+      if(CONFIG_BT_HCI_MESH_EXT)
+        list(APPEND CSRCS ${MESHDIR}/shell/hci.c)
+      endif()
+    endif() # CONFIG_BT_MESH_SHELL
+  endif() # CONFIG_BT_MESH
+
+  set(AUDIODIR ${BTDIR}/audio)
+
+  if(CONFIG_BT_AUDIO)
+    list(APPEND CSRCS ${AUDIODIR}/audio.c)
+
+    if(CONFIG_BT_VOCS)
+      list(APPEND CSRCS ${AUDIODIR}/vocs.c)
+    endif()
+    if(CONFIG_BT_VOCS_CLIENT)
+      list(APPEND CSRCS ${AUDIODIR}/vocs_client.c)
+    endif()
+    if(CONFIG_BT_AICS)
+      list(APPEND CSRCS ${AUDIODIR}/aics.c)
+    endif()
+    if(CONFIG_BT_AICS_CLIENT)
+      list(APPEND CSRCS ${AUDIODIR}/aics_client.c)
+    endif()
+    if(CONFIG_BT_VCP_VOL_REND)
+      list(APPEND CSRCS ${AUDIODIR}/vcp_vol_rend.c)
+    endif()
+    if(CONFIG_BT_VCP_VOL_CTLR)
+      list(APPEND CSRCS ${AUDIODIR}/vcp_vol_ctlr.c)
+    endif()
+    if(CONFIG_BT_MICP_MIC_DEV)
+      list(APPEND CSRCS ${AUDIODIR}/micp_mic_dev.c)
+    endif()
+    if(CONFIG_BT_MICP_MIC_CTLR)
+      list(APPEND CSRCS ${AUDIODIR}/micp_mic_ctlr.c)
+    endif()
+    if(CONFIG_BT_CONN)
+      list(APPEND CSRCS ${AUDIODIR}/ccid.c)
+    endif()
+    if(CONFIG_BT_CSIP_SET_MEMBER)
+      list(APPEND CSRCS ${AUDIODIR}/csip_set_member.c)
+    endif()
+    if(CONFIG_BT_CSIP_SET_COORDINATOR)
+      list(APPEND CSRCS ${AUDIODIR}/csip_set_coordinator.c)
+    endif()
+    if(CONFIG_BT_CSIP_SET_MEMBER AND CONFIG_BT_CSIP_SET_COORDINATOR)
+      list(APPEND CSRCS ${AUDIODIR}/csip_crypto.c)
+    endif()
+    if(CONFIG_BT_TBS)
+      list(APPEND CSRCS ${AUDIODIR}/tbs.c)
+    endif()
+    if(CONFIG_BT_TBS_CLIENT)
+      list(APPEND CSRCS ${AUDIODIR}/tbs_client.c)
+    endif()
+    if(CONFIG_BT_MCC)
+      list(APPEND CSRCS ${AUDIODIR}/mcc.c)
+    endif()
+    if(CONFIG_BT_MCS)
+      list(APPEND CSRCS ${AUDIODIR}/mcs.c)
+    endif()
+    if(CONFIG_BT_MPL)
+      list(APPEND CSRCS ${AUDIODIR}/mpl.c)
+    endif()
+    if(CONFIG_MCTL)
+      list(APPEND CSRCS ${AUDIODIR}/media_proxy.c)
+    endif()
+    if(CONFIG_BT_ASCS)
+      list(APPEND CSRCS ${AUDIODIR}/ascs.c)
+    endif()
+    if(CONFIG_BT_PACS)
+      list(APPEND CSRCS ${AUDIODIR}/pacs.c)
+    endif()
+    if(CONFIG_BT_BAP_STREAM)
+      list(APPEND CSRCS ${AUDIODIR}/bap_stream.c ${AUDIODIR}/codec.c ${AUDIODIR}/bap_iso.c)
+    endif()
+    if(CONFIG_BT_BAP_BASE)
+      list(APPEND CSRCS ${AUDIODIR}/bap_base.c)
+    endif()
+    if(CONFIG_BT_BAP_UNICAST_SERVER)
+      list(APPEND CSRCS ${AUDIODIR}/bap_unicast_server.c)
+    endif()
+    if(CONFIG_BT_BAP_UNICAST_CLIENT)
+      list(APPEND CSRCS ${AUDIODIR}/bap_unicast_client.c)
+    endif()
+    if(CONFIG_BT_BAP_BROADCAST_SOURCE)
+      list(APPEND CSRCS ${AUDIODIR}/bap_broadcast_source.c)
+    endif()
+    if(CONFIG_BT_BAP_BROADCAST_SINK)
+      list(APPEND CSRCS ${AUDIODIR}/bap_broadcast_sink.c)
+    endif()
+    if(CONFIG_BT_BAP_SCAN_DELEGATOR)
+      list(APPEND CSRCS ${AUDIODIR}/bap_scan_delegator.c)
+    endif()
+    if(CONFIG_BT_BAP_BROADCAST_ASSISTANT)
+      list(APPEND CSRCS ${AUDIODIR}/bap_broadcast_assistant.c)
+    endif()
+    if(CONFIG_BT_HAS)
+      list(APPEND CSRCS ${AUDIODIR}/has.c)
+    endif()
+    if(CONFIG_BT_HAS_CLIENT)
+      list(APPEND CSRCS ${AUDIODIR}/has_client.c)
+    endif()
+    if(CONFIG_BT_CAP)
+      list(APPEND CSRCS ${AUDIODIR}/cap_stream.c)
+    endif()
+    if(CONFIG_BT_CAP_ACCEPTOR)
+      list(APPEND CSRCS ${AUDIODIR}/cap_acceptor.c)
+    endif()
+    if(CONFIG_BT_CAP_INITIATOR)
+      list(APPEND CSRCS ${AUDIODIR}/cap_initiator.c)
+    endif()
+    if(CONFIG_BT_CAP_COMMANDER)
+      list(APPEND CSRCS ${AUDIODIR}/cap_commander.c)
+    endif()
+    if(CONFIG_BT_CAP_INITIATOR_UNICAST AND CONFIG_BT_CAP_COMMANDER)
+      list(APPEND CSRCS ${AUDIODIR}/cap_common.c)
+    endif()
+    if(CONFIG_BT_TMAP)
+      list(APPEND CSRCS ${AUDIODIR}/tmap.c)
+    endif()
+    if(CONFIG_BT_GMAP)
+      list(APPEND CSRCS ${AUDIODIR}/gmap_client.c ${AUDIODIR}/gmap_server.c)
+    endif()
+    if(CONFIG_BT_PBP)
+      list(APPEND CSRCS ${AUDIODIR}/pbp.c)
     endif()
 
-    if(CONFIG_SETTINGS_FS)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/subsys/fs/shell.c)
+    if(CONFIG_BT_SHELL)
+      if(CONFIG_BT_VCP_VOL_REND)
+        list(APPEND CSRCS ${AUDIODIR}/shell/vcp_vol_rend.c)
+      endif()
+      if(CONFIG_BT_VCP_VOL_CTLR)
+        list(APPEND CSRCS ${AUDIODIR}/shell/vcp_vol_ctlr.c)
+      endif()
+      if(CONFIG_BT_MICP_MIC_DEV)
+        list(APPEND CSRCS ${AUDIODIR}/shell/micp_mic_dev.c)
+      endif()
+      if(CONFIG_BT_MICP_MIC_CTLR)
+        list(APPEND CSRCS ${AUDIODIR}/shell/micp_mic_ctlr.c)
+      endif()
+      if(CONFIG_BT_CSIP_SET_MEMBER)
+        list(APPEND CSRCS ${AUDIODIR}/shell/csip_set_member.c)
+      endif()
+      if(CONFIG_BT_CSIP_SET_COORDINATOR)
+        list(APPEND CSRCS ${AUDIODIR}/shell/csip_set_coordinator.c)
+      endif()
+      if(CONFIG_BT_TBS)
+        list(APPEND CSRCS ${AUDIODIR}/shell/tbs.c)
+      endif()
+      if(CONFIG_BT_TBS_CLIENT)
+        list(APPEND CSRCS ${AUDIODIR}/shell/tbs_client.c)
+      endif()
+      if(CONFIG_BT_MPL)
+        list(APPEND CSRCS ${AUDIODIR}/shell/mpl.c)
+      endif()
+      if(CONFIG_BT_MCC)
+        list(APPEND CSRCS ${AUDIODIR}/shell/mcc.c)
+      endif()
+      if(CONFIG_BT_MCS)
+        list(APPEND CSRCS ${AUDIODIR}/shell/media_controller.c)
+      endif()
+      if(CONFIG_BT_HAS_PRESET_SUPPORT)
+        list(APPEND CSRCS ${AUDIODIR}/shell/has.c)
+      endif()
+      if(CONFIG_BT_CAP_ACCEPTOR)
+        list(APPEND CSRCS ${AUDIODIR}/shell/cap_acceptor.c)
+      endif()
+      if(CONFIG_BT_CAP_INITIATOR)
+        list(APPEND CSRCS ${AUDIODIR}/shell/cap_initiator.c)
+      endif()
+      if(CONFIG_BT_CAP_COMMANDER)
+        list(APPEND CSRCS ${AUDIODIR}/shell/cap_commander.c)
+      endif()
+      if(CONFIG_BT_HAS_CLIENT)
+        list(APPEND CSRCS ${AUDIODIR}/shell/has_client.c)
+      endif()
+      if(CONFIG_BT_TMAP)
+        list(APPEND CSRCS ${AUDIODIR}/shell/tmap.c)
+      endif()
+      if(CONFIG_BT_GMAP)
+        list(APPEND CSRCS ${AUDIODIR}/shell/gmap.c)
+      endif()
+      if(CONFIG_BT_BAP_STREAM)
+        list(APPEND CSRCS ${AUDIODIR}/shell/bap.c)
+      endif()
+      if(CONFIG_LIBLC3 AND CONFIG_USB_DEVICE_AUDIO)
+        list(APPEND CSRCS ${AUDIODIR}/shell/bap_usb.c)
+      endif()
+      if(CONFIG_BT_BAP_SCAN_DELEGATOR)
+        list(APPEND CSRCS ${AUDIODIR}/shell/bap_scan_delegator.c)
+      endif()
+      if(CONFIG_BT_BAP_BROADCAST_ASSISTANT)
+        list(APPEND CSRCS ${AUDIODIR}/shell/bap_broadcast_assistant.c)
+      endif()
+      if(CONFIG_BT_PBP)
+        list(APPEND CSRCS ${AUDIODIR}/shell/pbp.c)
+      endif()
+    endif() # CONFIG_BT_SHELL
+  endif() # CONFIG_BT_AUDIO
+
+  if(CONFIG_BT_CRYPTO)
+    list(APPEND CSRCS ${BTDIR}/crypto/bt_crypto.c)
+
+    if(CONFIG_BT_USE_PSA_API)
+      list(APPEND CSRCS ${BTDIR}/crypto/bt_crypto_psa.c)
+    else()
+      list(APPEND CSRCS ${BTDIR}/crypto/bt_crypto_tc.c)
     endif()
-
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/subsys/shell/shell.c)
   endif()
 
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/subsys/power/reboot.c)
+  if(CONFIG_SETTINGS)
+    set(SETTINGS_DIR zblue/subsys/settings/src)
 
-  if(CONFIG_BT_TESTER)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/tests/bluetooth/tester/src/bttester.c)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/tests/bluetooth/tester/src/gap.c)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/tests/bluetooth/tester/src/gatt.c)
+    list(APPEND CSRCS
+      ${SETTINGS_DIR}/settings_store.c
+      ${SETTINGS_DIR}/settings.c
+      ${SETTINGS_DIR}/settings_init.c
+      ${SETTINGS_DIR}/settings_line.c
+    )
 
-    if(CONFIG_BT_L2CAP_DYNAMIC_CHANNEL)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/tests/bluetooth/tester/src/l2cap.c)
+    if(CONFIG_SETTINGS_FILE)
+      list(APPEND CSRCS ${SETTINGS_DIR}/settings_file.c)
     endif()
-
-    if(CONFIG_BT_MESH)
-      list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/tests/bluetooth/tester/src/mesh.c)
+    if(CONFIG_SETTINGS_NVS)
+      list(APPEND CSRCS ${SETTINGS_DIR}/settings_nvs.c)
     endif()
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/drivers/console/uart_pipe.c)
-    list(APPEND ZBLUE_CSRCS
-         ${ZBLUE_DIR}/port/tests/bluetooth/tester/src/system.c)
-    zblue_app(bttester ${ZBLUE_DIR}/tests/bluetooth/tester/src/main.c)
-    list(APPEND ZBLUE_INCDIR ${ZBLUE_DIR}/tests/bluetooth/tester/src)
+    if(CONFIG_SETTINGS_NONE)
+      list(APPEND CSRCS ${SETTINGS_DIR}/settings_none.c)
+    endif()
+    if(CONFIG_SETTINGS_SHELL)
+      list(APPEND CSRCS ${SETTINGS_DIR}/settings_shell.c)
+    endif()
   endif()
 
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/sched.c)
-
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/timeout.c)
-
-  if(CONFIG_ZTEST_TIMEOUT)
-    zblue_app(test_timeout ${ZBLUE_DIR}/port/tests/kernel/test_timeout.c)
-  endif()
-
-  if(CONFIG_ZEPHYR_WORK_QUEUE)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/kernel/work.c)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/kernel/system_work_q.c)
-  else()
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/work_q.c)
-  endif()
-
-  if(CONFIG_ZTEST_WORK_Q)
-    zblue_app(test_workq ${ZBLUE_DIR}/port/tests/kernel/test_workq.c)
-  endif()
-
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/poll.c)
-
-  if(CONFIG_ZTEST_POLL)
-    zblue_app(test_poll ${ZBLUE_DIR}/port/tests/kernel/test_poll.c)
-  endif()
-
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/mem_slab.c)
-
-  if(CONFIG_ZTEST_MEMSLAB)
-    zblue_app(test_memslab ${ZBLUE_DIR}/port/tests/kernel/test_mem_slab.c)
-  endif()
-
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/atomic_c.c)
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/sem.c)
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/mutex.c)
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/queue.c)
-
-  if(CONFIG_ZTEST_QUEUE)
-    zblue_app(test_queue ${ZBLUE_DIR}/port/tests/kernel/test_queue.c)
-  endif()
-
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/kernel/thread.c)
-
-  if(CONFIG_ZTEST_THREAD)
-    zblue_app(test_thread ${ZBLUE_DIR}/port/tests/kernel/test_thread.c)
-  endif()
-
-  if(CONFIG_ZTEST_NVM)
-    zblue_app(test_nvm ${ZBLUE_DIR}/port/tests/fs/test_nvm.c)
-  endif()
-
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/lib/os/dec.c ${ZBLUE_DIR}/lib/os/hex.c)
-
-  if(CONFIG_ARCH_CHIP_R328)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/chip/xr829/xr829.c)
-    list(APPEND ZBLUE_INCDIR ${NUTTX_DIR}/arch/arm/src/r328/include/drivers)
-    list(APPEND ZBLUE_INCDIR ${NUTTX_DIR}/arch/arm/src/r328/include)
-  endif()
-
-  if(CONFIG_BT_LIBUSB)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/drivers/bluetooth/hci/libusb.c)
-  endif()
+  list(APPEND CSRCS
+    zblue/kernel/system_work_q.c
+    zblue/kernel/work.c
+    zblue/lib/net_buf/buf_simple.c
+    zblue/lib/utils/dec.c
+    zblue/lib/utils/hex.c
+    zblue/port/kernel/atomic_c.c
+    zblue/port/kernel/device.c
+    zblue/port/kernel/fatal.c
+    zblue/port/kernel/init.c
+    zblue/port/kernel/mem_slab.c
+    zblue/port/kernel/mutex.c
+    zblue/port/kernel/poll.c
+    zblue/port/kernel/queue.c
+    zblue/port/kernel/sched.c
+    zblue/port/kernel/sem.c
+    zblue/port/kernel/thread.c
+    zblue/port/kernel/timeout.c
+    zblue/port/lib/net_buf/buf.c
+    zblue/port/lib/os/assert.c
+    zblue/port/sections/defines.c
+    zblue/port/subsys/fs/fs.c
+  )
 
   if(CONFIG_BT_H4)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/drivers/bluetooth/hci/h4.c)
+    list(APPEND CSRCS zblue/port/drivers/bluetooth/hci/h4.c)
   endif()
-
-  if(CONFIG_BT_USERCHAN)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/drivers/bluetooth/hci/userchan.c)
-  endif()
-
-  if(CONFIG_BT_NATIVE)
-    list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/drivers/bluetooth/hci/native.c)
-  endif()
-
-  list(
-    APPEND
-    ZBLUE_FLAGS
-    -Wno-format-zero-length
-    -Wno-implicit-function-declaration
-    -Wno-unused-but-set-variable
-    -Wno-unused-function
-    -Wno-unused-variable
-    -Wno-format
-    -Wno-pointer-sign
-    -Wno-strict-prototypes
-    -Wno-implicit-int
-    -Wno-shadow
-    -Wno-int-to-pointer-cast
-    -Wno-pointer-to-int-cast
-    -Wno-undef)
 
   if(CONFIG_BT_SAMPLE)
-    if(CONFIG_BT_SAMPLE_BROADCASTER)
-      zblue_app(broadcaster
-                ${ZBLUE_DIR}/samples/bluetooth/broadcaster/src/main.c)
-      list(APPEND ZBLUE_INCDIR ${ZBLUE_DIR}/samples/bluetooth/broadcaster/src)
-    endif()
+    set(ZBLUE_STACKSIZE ${CONFIG_BT_SAMPLE_STACKSIZE})
+  else()
+    set(ZBLUE_STACKSIZE ${CONFIG_DEFAULT_TASK_STACKSIZE})
+  endif()
 
-    if(CONFIG_BT_SAMPLE_OBSERVER)
-      zblue_app(observer ${ZBLUE_DIR}/samples/bluetooth/observer/src/main.c)
-      list(APPEND ZBLUE_INCDIR ${ZBLUE_DIR}/samples/bluetooth/observer/src)
-    endif()
+  if(CONFIG_BT_SHELL)
+    nuttx_add_application(
+      NAME zblue
+      STACKSIZE ${ZBLUE_STACKSIZE}
+      SRCS ${ZBLUE_DIR}port/subsys/shell/shell.c
+      INCLUDE_DIRECTORIES ${INCDIR}
+      COMPILE_FLAGS ${CFLAGS})
+  endif()
 
+  if(CONFIG_BT_SAMPLE)
     if(CONFIG_BT_SAMPLE_PERIPHERAL)
-      zblue_app(peripheral ${ZBLUE_DIR}/samples/bluetooth/peripheral/src/main.c)
-      list(APPEND ZBLUE_INCDIR ${ZBLUE_DIR}/samples/bluetooth/peripheral/src)
-      list(APPEND ZBLUE_CSRCS
-           ${ZBLUE_DIR}/samples/bluetooth/peripheral/src/cts.c)
+      nuttx_add_application(
+        NAME peripheral
+        STACKSIZE ${ZBLUE_STACKSIZE}
+        SRCS ${ZBLUE_DIR}samples/bluetooth/peripheral/src/main.c
+        INCLUDE_DIRECTORIES ${INCDIR}
+        COMPILE_FLAGS ${CFLAGS})
     endif()
 
     if(CONFIG_BT_SAMPLE_CENTRAL)
-      zblue_app(central ${ZBLUE_DIR}/samples/bluetooth/central/src/main.c)
+      nuttx_add_application(
+        NAME central
+        STACKSIZE ${ZBLUE_STACKSIZE}
+        SRCS ${ZBLUE_DIR}samples/bluetooth/central/src/main.c
+        INCLUDE_DIRECTORIES ${INCDIR}
+        COMPILE_FLAGS ${CFLAGS})
     endif()
 
-    if(CONFIG_BT_SAMPLE_MESH)
-      if(NOT CONFIG_BT_MESH_PROV)
-        zblue_app(btmesh ${ZBLUE_DIR}/samples/bluetooth/mesh_demo/src/main.c)
-      else()
-        zblue_app(btmesh ${ZBLUE_DIR}/samples/bluetooth/mesh_test/src/main.c)
-        list(APPEND ZBLUE_CSRCS
-             ${ZBLUE_DIR}/samples/bluetooth/mesh_test/src/board.c)
-      endif()
-      if(CONFIG_BT_MESH_PROVISIONER)
-        zblue_app(mesh_provisioner
-                  ${ZBLUE_DIR}/samples/bluetooth/mesh_provisioner/src/main.c)
-      endif()
+    if(CONFIG_BT_SAMPLE_HFP_HF)
+      nuttx_add_application(
+        NAME hfp_hf
+        STACKSIZE ${ZBLUE_STACKSIZE}
+        SRCS ${ZBLUE_DIR}samples/bluetooth/handsfree/src/main.c
+        INCLUDE_DIRECTORIES ${INCDIR}
+        COMPILE_FLAGS ${CFLAGS})
     endif()
   endif()
 
-  if(CONFIG_BT_H4_ENABLE)
-    zblue_app(hci_uart ${ZBLUE_DIR}/port/drivers/bluetooth/hci/h4_uart.c)
-  endif()
+  nuttx_add_library(zblue)
 
-  list(APPEND ZBLUE_CSRCS ${ZBLUE_DIR}/port/drivers/init.c)
+  target_sources(zblue PRIVATE ${CSRCS})
+  target_include_directories(zblue PRIVATE ${INCDIR})
+  target_compile_options(zblue PRIVATE ${CFLAGS})
 
-  target_sources(zblue PRIVATE ${ZBLUE_CSRCS})
-  target_include_directories(zblue PUBLIC ${ZBLUE_INCDIR})
-  target_compile_options(zblue PUBLIC ${ZBLUE_FLAGS})
+  set(ZINC ${APPDIR}/external/zblue/zblue/include/zephyr)
+  set(PORTINC ${ZBLUE_DIR}port/include/zephyr)
 
-  set(NSH_FILE "${NUTTX_APPS_DIR}/nshlib/nsh_command.c")
-  set(NSH_CMD_END_MARK "  { NULL,       NULL,         1, 1, NULL }")
-  set(NSH_ZBLUE_HEADER "#ifdef CONFIG_BT_SHELL\n")
-  set(NSH_ZBLUE_CMD
-      "  { \"zblue\",    cmd_zblue,    1, CONFIG_NSH_MAXARGUMENTS, \"zblue\" },\n"
+  set(SYMLINK_FILES
+    app_memory/mem_domain.h
+    arch/arch_interface.h
+    arch/common/ffs.h
+    debug/stack.h
+    devicetree/ordinals.h
+    fatal.h
+    fatal_types.h
+    fs/fs.h
+    fs/fs_interface.h
+    irq.h
+    irq_offload.h
+    kernel_includes.h
+    kernel/internal/smp.h
+    kernel/obj_core.h
+    kernel/stats.h
+    kernel/thread_stack.h
+    kernel_version.h
+    linker/sections.h
+    linker/section_tags.h
+    spinlock.h
+    shell/shell_types.h
+    shell/shell_fprintf.h
+    shell/shell_string_conv.h
+    sys/__assert.h
+    sys/atomic.h
+    sys/atomic_c.h
+    sys/atomic_types.h
+    sys/byteorder.h
+    sys/check.h
+    sys/crc.h
+    sys/dlist.h
+    sys/list_gen.h
+    sys/math_extras.h
+    sys/math_extras_impl.h
+    sys/mem_stats.h
+    sys/rb.h
+    sys/sflist.h
+    sys/slist.h
+    sys/sys_heap.h
+    sys/time_units.h
+    sys/util.h
+    sys/util_macro.h
+    sys/util_loops.h
+    sys/util_listify.h
+    tracing/tracing_macros.h
+    types.h
   )
-  set(NSH_ZBLUE_END "#endif")
-  set(NSH_ZBLUE "\n${NSH_ZBLUE_HEADER}${NSH_ZBLUE_CMD}${NSH_ZBLUE_END}")
-  set(NSH_CMD_END_MARK1 "  { NULL,       NULL,         0, 0, NULL }")
-  set(NSH_EXTERN_ZBLUE
-      "extern int cmd_zblue(FAR struct nsh_vtbl_s *vtbl, int argc, char *argv[]);\n"
-  )
-  set(NSH_ZBLUE_EXTERN "${NSH_ZBLUE_HEADER}${NSH_EXTERN_ZBLUE}${NSH_ZBLUE_END}")
-  set(NSH_POS1 "static int cmd_unrecognized")
-  set(NSH_POS "static int  cmd_unrecognized")
 
-  if(CONFIG_BT_SHELL)
-    file(READ ${NSH_FILE} NSH_FILE_CONTENTS)
-    string(REPLACE "${NSH_POS}" "${NSH_ZBLUE_EXTERN}\n\n${NSH_POS1}"
-                   NSH_FILE_CONTENTS "${NSH_FILE_CONTENTS}")
-    string(REPLACE "${NSH_CMD_END_MARK}" "${NSH_ZBLUE}\n\n${NSH_CMD_END_MARK1}"
-                   NSH_FILE_CONTENTS "${NSH_FILE_CONTENTS}")
-    file(WRITE ${NSH_FILE} "${NSH_FILE_CONTENTS}")
-  endif()
+  add_custom_target(create_symlinks ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PORTINC}/app_memory
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PORTINC}/debug
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PORTINC}/devicetree
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PORTINC}/fs
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PORTINC}/linker
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PORTINC}/arch/common
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PORTINC}/kernel/internal
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${ZINC}/bluetooth ${PORTINC}/bluetooth
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${ZINC}/drivers ${PORTINC}/drivers
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${ZINC}/settings ${PORTINC}/settings
+  )
+
+  foreach(file ${SYMLINK_FILES})
+    add_custom_command(TARGET create_symlinks POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ${ZINC}/${file} ${PORTINC}/${file}
+    )
+  endforeach()
+  add_dependencies(zblue create_symlinks)
+
+  add_custom_target(clean_symlinks
+    COMMAND ${CMAKE_COMMAND} -E remove -f .built
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${PORTINC}/bluetooth
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${PORTINC}/drivers
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${PORTINC}/settings
+  )
+
+  foreach(file ${SYMLINK_FILES})
+    add_custom_command(TARGET clean_symlinks POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E remove -f ${PORTINC}/${file}
+    )
+  endforeach()
+
 endif()
